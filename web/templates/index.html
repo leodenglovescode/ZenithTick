@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="ZenithTick GNSS and PPS timing instrument">
+  <title>ZenithTick GNSS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <main class="instrument" aria-label="ZenithTick GNSS dashboard">
+    <header class="instrument-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">ZT</span>
+        <div>
+          <h1>ZenithTick</h1>
+          <span>GNSS / TIME REFERENCE</span>
+        </div>
+      </div>
+      <div class="header-states" aria-label="Receiver status">
+        <span class="state-readout"><i id="gps-lamp" class="lamp is-off"></i>GPS <b id="gps-header-state">WAIT</b></span>
+        <span class="state-readout"><i id="pps-lamp" class="lamp is-off"></i>PPS <b id="pps-header-state">WAIT</b></span>
+      </div>
+    </header>
+
+    <section class="primary-grid">
+      <section class="panel sky-panel" aria-labelledby="sky-title">
+        <div class="panel-heading">
+          <h2 id="sky-title">Satellite sky</h2>
+          <div class="panel-counts"><span>VISIBLE <b id="visible-count">—</b></span><span>USED <b id="used-count">—</b></span></div>
+        </div>
+        <div class="sky-wrap">
+          <svg id="sky-plot" viewBox="0 0 400 400" role="img" aria-labelledby="sky-svg-title sky-svg-desc">
+            <title id="sky-svg-title">GNSS satellite sky plot</title>
+            <desc id="sky-svg-desc">North is up, east is right, and the center is zenith.</desc>
+            <g class="sky-grid">
+              <circle cx="200" cy="200" r="160"></circle>
+              <circle cx="200" cy="200" r="106.67"></circle>
+              <circle cx="200" cy="200" r="53.33"></circle>
+              <line x1="40" y1="200" x2="360" y2="200"></line>
+              <line x1="200" y1="40" x2="200" y2="360"></line>
+              <text x="200" y="27" text-anchor="middle">N</text>
+              <text x="378" y="205" text-anchor="middle">E</text>
+              <text x="200" y="386" text-anchor="middle">S</text>
+              <text x="22" y="205" text-anchor="middle">W</text>
+              <text x="207" y="91">60°</text>
+              <text x="207" y="145">30°</text>
+              <text x="207" y="194">90°</text>
+            </g>
+            <g id="satellite-layer"></g>
+          </svg>
+          <div id="satellite-tooltip" class="plot-tooltip" role="tooltip" hidden></div>
+        </div>
+        <div class="plot-key" aria-label="Sky plot legend">
+          <span><i class="key-marker used"></i>Used in fix</span>
+          <span><i class="key-marker visible"></i>Visible</span>
+          <span class="muted">marker size follows C/N0</span>
+        </div>
+      </section>
+
+      <section class="panel clock-panel" aria-labelledby="clock-title">
+        <h2 id="clock-title" class="visually-hidden">Raspberry Pi system clock</h2>
+        <div class="timezone-label">TZ: GMT +8 <span>ASIA/SHANGHAI</span></div>
+        <div id="clock-date" class="clock-date">Waiting for Pi time</div>
+        <div id="clock-weekday" class="clock-weekday">—</div>
+        <div id="clock-time" class="clock-time" aria-live="off">
+          <span id="clock-hms">--:--:--</span><span class="clock-ms">.<span id="clock-ms">---</span></span>
+        </div>
+        <div class="clock-scale" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div id="clock-quality" class="clock-quality">SYSTEM CLOCK · synchronizing browser</div>
+      </section>
+
+      <section class="panel gnss-panel" aria-labelledby="gnss-title">
+        <div class="panel-heading">
+          <h2 id="gnss-title">GNSS status</h2>
+          <span id="fix-mode" class="fix-mode">NO FIX</span>
+        </div>
+        <dl class="readout-list">
+          <div><dt>Latitude</dt><dd id="latitude">—</dd></div>
+          <div><dt>Longitude</dt><dd id="longitude">—</dd></div>
+          <div><dt>Altitude</dt><dd id="altitude">—</dd></div>
+          <div><dt>GPS UTC</dt><dd id="gps-time">—</dd></div>
+          <div><dt>Satellites</dt><dd id="satellite-ratio">—</dd></div>
+          <div><dt>HDOP</dt><dd id="hdop">—</dd></div>
+          <div><dt>PDOP / VDOP</dt><dd id="dop-pair">—</dd></div>
+          <div id="speed-row"><dt>Speed</dt><dd id="speed">—</dd></div>
+          <div id="course-row"><dt>Course</dt><dd id="course">—</dd></div>
+          <div><dt>Receiver</dt><dd id="receiver">—</dd></div>
+        </dl>
+        <div id="gps-component-state" class="component-state">Awaiting gpsd</div>
+      </section>
+    </section>
+
+    <section class="panel table-panel" aria-labelledby="satellites-title">
+      <div class="panel-heading">
+        <h2 id="satellites-title">Satellites</h2>
+        <span id="satellite-update" class="section-note">No SKY report</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th><button type="button" data-sort="label">ID / PRN</button></th>
+              <th><button type="button" data-sort="az">Azimuth</button></th>
+              <th><button type="button" data-sort="el">Elevation</button></th>
+              <th><button type="button" data-sort="ss">C/N0 dB-Hz</button></th>
+              <th><button type="button" data-sort="used">Used</button></th>
+              <th><button type="button" data-sort="first_seen">First seen</button></th>
+              <th><button type="button" data-sort="last_seen">Last seen</button></th>
+              <th><button type="button" data-sort="best_signal">Best C/N0</button></th>
+            </tr>
+          </thead>
+          <tbody id="satellite-table-body">
+            <tr class="empty-row"><td colspan="8">Waiting for satellite data</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel chrony-panel" aria-labelledby="chrony-title">
+      <div class="panel-heading">
+        <h2 id="chrony-title">PPS / chrony</h2>
+        <span id="chrony-state" class="section-note">Awaiting chronyd</span>
+      </div>
+      <dl class="timing-strip">
+        <div><dt>Selected</dt><dd id="selected-source">—</dd></div>
+        <div><dt>Stratum</dt><dd id="stratum">—</dd></div>
+        <div><dt>System offset</dt><dd id="system-offset">—</dd></div>
+        <div><dt>Last offset</dt><dd id="last-offset">—</dd></div>
+        <div><dt>RMS offset</dt><dd id="rms-offset">—</dd></div>
+        <div><dt>Frequency</dt><dd id="frequency">—</dd></div>
+        <div><dt>Root dispersion</dt><dd id="root-dispersion">—</dd></div>
+        <div><dt>Reference time</dt><dd id="reference-time">—</dd></div>
+        <div><dt>Leap</dt><dd id="leap-status">—</dd></div>
+      </dl>
+      <div class="table-scroll chrony-table-wrap">
+        <table>
+          <thead><tr><th>State</th><th>Source</th><th>Stratum</th><th>Reach</th><th>Last Rx</th><th>Offset</th><th>Error</th><th>Std dev</th></tr></thead>
+          <tbody id="chrony-sources-body"><tr class="empty-row"><td colspan="8">Waiting for chrony source data</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <span>ZENITICK / WATCHDOG-PI</span>
+      <span id="backend-state">Backend connecting</span>
+    </footer>
+  </main>
+</body>
+</html>

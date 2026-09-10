@@ -1,0 +1,38 @@
+[Unit]
+Description=ZenithTick GNSS and PPS dashboard
+After=network-online.target gpsd.socket chrony.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/zenitick
+Environment=PYTHONUNBUFFERED=1
+Environment=ZENITICK_BIND=192.168.3.99
+Environment=ZENITICK_PORT=8080
+Environment=ZENITICK_GPSD_HOST=127.0.0.1
+Environment=ZENITICK_GPSD_PORT=2947
+Environment=ZENITICK_HISTORY_DB=/var/lib/zenitick/satellite_history.sqlite3
+ExecStart=/opt/zenitick/.venv/bin/gunicorn --workers 1 --threads 4 --timeout 15 --bind 192.168.3.99:8080 --access-logfile - --error-logfile - web.app:create_app()
+Restart=on-failure
+RestartSec=3
+StateDirectory=zenitick
+UMask=0077
+
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
