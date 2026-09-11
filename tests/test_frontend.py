@@ -46,6 +46,11 @@ class FrontendPreferenceTests(unittest.TestCase):
         self.assertIn("grid-template-columns: minmax(0, 3fr) minmax(640px, 2fr)", css)
         self.assertIn(".detail-grid .timing-strip", css)
 
+    def test_sky_elevation_ring_labels_match_projection(self) -> None:
+        html = (PROJECT_ROOT / "web" / "templates" / "index.html").read_text()
+        self.assertIn('<text x="207" y="91">30°</text>', html)
+        self.assertIn('<text x="207" y="145">60°</text>', html)
+
 
 if __name__ == "__main__":
     unittest.main()
