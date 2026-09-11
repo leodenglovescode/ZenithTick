@@ -25,6 +25,12 @@ class InstallerTests(unittest.TestCase):
         for action in ("install", "update", "uninstall", "status", "auto-update"):
             self.assertIn(action, result.stdout)
 
+    def test_default_port_conflicts_have_an_automatic_fallback(self) -> None:
+        installer = INSTALLER.read_text()
+        self.assertIn("Stop the process(es) using port", installer)
+        self.assertIn("using the next free port", installer)
+        self.assertIn("The explicitly requested port is occupied", installer)
+
     def test_update_timer_is_daily_and_persistent(self) -> None:
         timer = (PROJECT_ROOT / "systemd" / "zenitick-update.timer").read_text()
         self.assertIn("OnCalendar=daily", timer)

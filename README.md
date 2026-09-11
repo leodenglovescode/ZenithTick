@@ -12,7 +12,7 @@ curl -fsSL 'https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/i
 
 The command must end with `sudo bash -s -- install`. The installer handles dependencies, configuration, systemd, and automatic updates, then prints the dashboard address after its health check passes.
 
-Dashboard address after installation: **`http://<PI_LAN_IP>:8989`**
+Dashboard address after installation: **`http://<PI_LAN_IP>:<PORT>`**
 
 `<PI_LAN_IP>` means the Pi's existing private IPv4 address on your LAN. It is supplied during installation and is never committed to the repository.
 
@@ -49,11 +49,11 @@ The gpsd and chrony workers are independent. Loss of either source does not bloc
 
 The production Pi must already have a private IPv4 address, with gpsd and chrony working. The GitHub-hosted installer handles dependencies, source checkout, Python environment, configuration, systemd, and a local API health check.
 
-If the Pi has one private LAN address, the installer selects it automatically. If it has several, the installer asks which one to use. It refuses wildcard, public, loopback, and unassigned addresses. Port 8989 is used by default; pass `--port PORT` to choose another unprivileged port.
+If the Pi has one private LAN address, the installer selects it automatically. If it has several, the installer asks which one to use. It refuses wildcard, public, loopback, and unassigned addresses. Port 8989 is preferred. If it is occupied, the installer shows the listener and asks whether to stop it. Answering no leaves it untouched and selects the next free port. Pass `--port PORT` when a specific port is required.
 
 The installer:
 
-- Installs only `ca-certificates`, `curl`, `git`, `iproute2`, `python3-venv`, and `util-linux` through APT.
+- Installs only `ca-certificates`, `curl`, `git`, `iproute2`, `psmisc`, `python3-venv`, and `util-linux` through APT.
 - Clones the public repository into `/opt/zenitick`.
 - Creates an isolated Python environment and installs the Python requirements.
 - Saves the selected address and port outside Git in `/etc/zenitick/zenitick.env`.
@@ -71,7 +71,7 @@ less install.sh
 sudo bash install.sh install
 ```
 
-After installation, open **`http://<PI_LAN_IP>:8989`** and confirm the displayed satellite and timing data against gpsd and chrony.
+After installation, open the exact address printed by the installer and confirm the displayed satellite and timing data against gpsd and chrony.
 
 ## Manage the installation
 

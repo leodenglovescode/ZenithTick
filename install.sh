@@ -141,23 +141,76 @@ select_port() {
 }
 
 check_port_available() {
-  local old_bind old_port
+  local old_bind old_port candidate upper_bound confirmation attempt listener_pids pid
   old_bind="$(read_config_value ZENITICK_BIND)"
   old_port="$(read_config_value ZENITICK_PORT)"
-  if ss -H -ltn "sport = :${SELECTED_PORT}" | grep -q .; then
-    if [[ -n "${old_bind}" && "${old_port}" == "${SELECTED_PORT}" ]] \
-      && systemctl is-active --quiet "${SERVICE_NAME}"; then
+  if ! ss -H -ltn "sport = :${SELECTED_PORT}" | grep -q .; then
+    return 0
+  fi
+
+  if systemctl is-active --quiet "${SERVICE_NAME}"; then
+    if [[ "${old_port}" == "${SELECTED_PORT}" ]] \
+      && [[ "${old_bind}" == "${SELECTED_BIND}" || -z "${old_bind}" ]]; then
+      printf 'Port %s belongs to the existing ZenithTick service; it will be replaced cleanly.\n' "${SELECTED_PORT}"
       return 0
     fi
-    die "TCP port ${SELECTED_PORT} is already in use. Choose another with --port PORT."
   fi
+
+  printf 'TCP port %s is already in use by:\n' "${SELECTED_PORT}" >&2
+  ss -ltnp "sport = :${SELECTED_PORT}" >&2 || true
+
+  if [[ -r /dev/tty ]]; then
+    read -r -p "Stop the process(es) using port ${SELECTED_PORT}? [y/N] " confirmation < /dev/tty
+    case "${confirmation}" in
+      y|Y|yes|YES)
+        listener_pids="$(fuser -n tcp "${SELECTED_PORT}" 2>/dev/null || true)"
+        for pid in ${listener_pids}; do
+          [[ "${pid}" =~ ^[0-9]+$ ]] || continue
+          if (( pid <= 1 )); then
+            printf 'Refusing to signal protected PID %s.\n' "${pid}" >&2
+            continue
+          fi
+          kill -TERM "${pid}" 2>/dev/null || true
+        done
+        for attempt in {1..5}; do
+          if ! ss -H -ltn "sport = :${SELECTED_PORT}" | grep -q .; then
+            printf 'Port %s is now free.\n' "${SELECTED_PORT}"
+            return 0
+          fi
+          sleep 1
+        done
+        printf 'Port %s was reopened, probably by a supervising service.\n' "${SELECTED_PORT}" >&2
+        ;;
+      *)
+        printf 'The existing listener was left running.\n'
+        ;;
+    esac
+  else
+    printf 'No interactive terminal is available; the existing listener was left running.\n' >&2
+  fi
+
+  if [[ -n "${PORT_ARGUMENT}" ]]; then
+    die "The explicitly requested port is occupied. Stop its owning service or choose another --port value."
+  fi
+
+  upper_bound=$(( SELECTED_PORT + 100 ))
+  (( upper_bound > 65535 )) && upper_bound=65535
+  for (( candidate = SELECTED_PORT + 1; candidate <= upper_bound; candidate++ )); do
+    if ! ss -H -ltn "sport = :${candidate}" | grep -q .; then
+      printf 'Default port %s is busy; using the next free port, %s.\n' "${SELECTED_PORT}" "${candidate}"
+      SELECTED_PORT="${candidate}"
+      return 0
+    fi
+  done
+
+  die "No free port was found in the next 100 ports. Rerun with --port PORT."
 }
 
 install_dependencies() {
   log "Installing required Debian packages"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install --no-install-recommends ca-certificates curl git iproute2 python3-venv util-linux
+  apt-get install --no-install-recommends ca-certificates curl git iproute2 psmisc python3-venv util-linux
 }
 
 validate_checkout() {
