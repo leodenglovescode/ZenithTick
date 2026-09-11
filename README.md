@@ -2,6 +2,16 @@
 
 ZenithTick is a lightweight, LAN-only GNSS and PPS timing dashboard for the PiWatch Raspberry Pi. It reads the existing gpsd and chrony services without changing their configuration. The UI is rendered entirely by another device's browser; the Pi does not need a desktop environment.
 
+## Quick install
+
+On the Raspberry Pi, copy and run this **entire line**:
+
+```bash
+curl -fsSL 'https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/install.sh' | sudo bash -s -- install
+```
+
+The command must end with `sudo bash -s -- install`. The installer handles dependencies, configuration, systemd, and automatic updates, then prints the dashboard address after its health check passes.
+
 Dashboard address after installation: **`http://<PI_LAN_IP>:8989`**
 
 `<PI_LAN_IP>` means the Pi's existing private IPv4 address on your LAN. It is supplied during installation and is never committed to the repository.
@@ -35,13 +45,9 @@ The API is intentionally small:
 
 The gpsd and chrony workers are independent. Loss of either source does not block the page or the other worker, and last-known optional GPS fields survive partial gpsd reports.
 
-## Install on the Raspberry Pi
+## Installation details
 
-The production Pi must already have a private IPv4 address, with gpsd and chrony working. One GitHub-hosted installer handles dependencies, source checkout, Python environment, configuration, systemd, and a local API health check:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/install.sh | sudo bash -s -- install
-```
+The production Pi must already have a private IPv4 address, with gpsd and chrony working. The GitHub-hosted installer handles dependencies, source checkout, Python environment, configuration, systemd, and a local API health check.
 
 If the Pi has one private LAN address, the installer selects it automatically. If it has several, the installer asks which one to use. It refuses wildcard, public, loopback, and unassigned addresses. Port 8989 is used by default; pass `--port PORT` to choose another unprivileged port.
 
@@ -85,7 +91,7 @@ sudo zenitickctl uninstall
 Automatic updates run daily with a randomized delay and after a missed schedule on the next boot. They are enabled by default. To install without them:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/install.sh | sudo bash -s -- install --no-auto-update
+curl -fsSL 'https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/install.sh' | sudo bash -s -- install --no-auto-update
 ```
 
 `uninstall` removes the service, timer, application checkout, and configuration after confirmation. Satellite history under `/var/lib/zenitick` is preserved by default. Permanently remove it only when intended:
