@@ -6,7 +6,7 @@ Dashboard address after installation: **`http://<PI_LAN_IP>:8989`**
 
 `<PI_LAN_IP>` means the Pi's existing private IPv4 address on your LAN. It is supplied during installation and is never committed to the repository.
 
-Source repository: **GitHub**. This local checkout does not have an `origin` remote yet, so the exact GitHub URL is intentionally not invented below. Replace `YOUR_GITHUB_USERNAME` once when the repository is created.
+Source repository: **[github.com/leodenglovescode/ZenithTick](https://github.com/leodenglovescode/ZenithTick)**
 
 ## What it reads
 
@@ -35,29 +35,18 @@ The API is intentionally small:
 
 The gpsd and chrony workers are independent. Loss of either source does not block the page or the other worker, and last-known optional GPS fields survive partial gpsd reports.
 
-## Publish to GitHub once
-
-Create an empty GitHub repository named `ZenithTick`, without adding a README or license on GitHub. Then run these commands from this local checkout, replacing the username:
-
-```bash
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/ZenithTick.git
-git push -u origin main
-```
-
-Those commands are documentation only—this project will not push or create a remote without explicit authorization.
-
 ## Install on the Raspberry Pi
 
 The production Pi must already have a fixed private IPv4 address, with gpsd and chrony working. Installation is deliberately split into preparation, foreground verification, and service installation so the systemd unit is never started before live data is checked.
 
 ### 1. Clone and prepare
 
-Run on the Pi, replacing the GitHub username:
+Run on the Pi:
 
 ```bash
 sudo apt-get update
 sudo apt-get install --no-install-recommends git ca-certificates
-sudo git clone https://github.com/YOUR_GITHUB_USERNAME/ZenithTick.git /opt/zenitick
+sudo git clone https://github.com/leodenglovescode/ZenithTick.git /opt/zenitick
 sudo /opt/zenitick/scripts/prepare.sh
 ```
 
