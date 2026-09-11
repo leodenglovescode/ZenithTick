@@ -2,6 +2,8 @@
 
 ZenithTick is a lightweight, LAN-only GNSS and PPS timing dashboard for the PiWatch Raspberry Pi. It reads the existing gpsd and chrony services without changing their configuration. The UI is rendered entirely by another device's browser; the Pi does not need a desktop environment.
 
+<img width="2560" height="1318" alt="Screenshot 2026-09-11 at 17 06 35" src="https://github.com/user-attachments/assets/1c8bad0f-506b-4e03-b3d4-3453fb2c962e" />
+
 ## Quick install
 
 On the Raspberry Pi, copy and run this **entire line**:
