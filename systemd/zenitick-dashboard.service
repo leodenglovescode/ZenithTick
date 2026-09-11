@@ -8,12 +8,11 @@ Type=simple
 DynamicUser=yes
 WorkingDirectory=/opt/zenitick
 Environment=PYTHONUNBUFFERED=1
-Environment=ZENITICK_BIND=192.168.3.99
-Environment=ZENITICK_PORT=8080
+EnvironmentFile=/etc/zenitick/zenitick.env
 Environment=ZENITICK_GPSD_HOST=127.0.0.1
 Environment=ZENITICK_GPSD_PORT=2947
 Environment=ZENITICK_HISTORY_DB=/var/lib/zenitick/satellite_history.sqlite3
-ExecStart=/opt/zenitick/.venv/bin/gunicorn --workers 1 --threads 4 --timeout 15 --bind 192.168.3.99:8080 --access-logfile - --error-logfile - web.app:create_app()
+ExecStart=/opt/zenitick/.venv/bin/gunicorn --config /opt/zenitick/web/gunicorn_config.py web.app:create_app()
 Restart=on-failure
 RestartSec=3
 StateDirectory=zenitick

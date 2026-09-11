@@ -2,13 +2,13 @@
 
 ## Project scope
 
-ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for the PiWatch host `watchdog-pi` (`192.168.3.99`). The production target is Raspberry Pi OS Lite/Debian with no desktop environment. The browser UI is served at `http://192.168.3.99:8080`.
+ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for a PiWatch host. The production target is Raspberry Pi OS Lite/Debian with no desktop environment. Deployment supplies the Pi's private RFC1918 IPv4 address as `<PI_LAN_IP>` and serves the browser UI at `http://<PI_LAN_IP>:8080`.
 
 ## Non-negotiable guardrails
 
 - Do not modify gpsd, chrony, PPS, PiWatch watchdog, LoRa, OLED, Xray, or AdGuard configuration as part of dashboard work.
 - Do not expose credentials, environment contents, coordinates to third parties, or other secrets.
-- Keep the server bound to the explicit LAN IPv4 address. Do not change it to `0.0.0.0`, `::`, or a public interface.
+- Keep the server bound to the explicit private LAN IPv4 address saved in `/etc/zenitick/zenitick.env`. Do not change it to a wildcard or public interface.
 - Do not add analytics, telemetry, CDNs, external fonts/scripts, map tiles, React, Node, npm, webpack, or a large frontend framework.
 - Do not claim the browser-rendered milliseconds are direct PPS-edge accuracy. They are an RTT-estimated view of the Pi's chrony-disciplined system clock.
 - Do not install or restart the production systemd unit until the foreground/manual checks in `README.md` pass on the Pi.
@@ -21,6 +21,7 @@ ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for the PiWatch 
 - `web/gps_service.py`: single persistent gpsd WATCH socket, reconnect/backoff, partial TPV/SKY merge.
 - `web/chrony_service.py`: periodic machine-readable `chronyc -c` polling and parsing.
 - `web/time_service.py`: paired realtime/monotonic timestamp capture for browser probes.
+- `web/gunicorn_config.py`: validates the production RFC1918 address and configures the Gunicorn process.
 - `web/history.py`: in-memory satellite history and throttled SQLite persistence.
 - `web/templates/index.html`: semantic dashboard markup.
 - `web/static/app.js`: rendering, SVG sky plot, sorting, polling, and clock synchronization.
@@ -68,4 +69,4 @@ For a Flask/API smoke test, follow the local or Pi instructions in `README.md`. 
 - Do not push until the user creates and authorizes a remote repository.
 - Deployment source is the GitHub checkout at `/opt/zenitick`; do not restore the old rsync-based deployment instructions.
 - Production files live at `/opt/zenitick`; persistent satellite history lives at `/var/lib/zenitick` under systemd.
-- If the bind address or port changes, update both the service environment and Gunicorn `--bind`, plus the README.
+- If the bind address changes, rerun `scripts/prepare.sh <PI_LAN_IP>` and restart only the ZenithTick service.

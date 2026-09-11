@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 EXPECTED_DIR="/opt/zenitick"
 UNIT_NAME="zenitick-dashboard.service"
+CONFIG_FILE="/etc/zenitick/zenitick.env"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run this service installation step with sudo:" >&2
@@ -18,6 +19,11 @@ fi
 
 if [[ ! -x "${PROJECT_DIR}/.venv/bin/gunicorn" ]]; then
   echo "Python environment not found. Run ${PROJECT_DIR}/scripts/prepare.sh first." >&2
+  exit 1
+fi
+
+if [[ ! -r "${CONFIG_FILE}" ]]; then
+  echo "Deployment configuration not found. Run ${PROJECT_DIR}/scripts/prepare.sh <PI_LAN_IP> first." >&2
   exit 1
 fi
 
@@ -37,4 +43,7 @@ systemctl enable --now "${UNIT_NAME}"
 systemctl --no-pager --full status "${UNIT_NAME}"
 
 echo
-echo "ZenithTick is running at http://192.168.3.99:8080"
+set -a
+source "${CONFIG_FILE}"
+set +a
+echo "ZenithTick is running at http://${ZENITICK_BIND}:${ZENITICK_PORT}"
