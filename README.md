@@ -163,6 +163,8 @@ gpsd and chrony may show as unavailable during this local smoke test; that is an
 
 - No analytics, telemetry, CDNs, external fonts, map tiles, or third-party requests.
 - Coordinates remain between gpsd, the Pi process, and the requesting LAN browser.
+- Latitude, longitude, and altitude are visually blurred by default. The header privacy control reveals them per browser; this is shoulder-surfing protection, not API redaction or authentication.
+- Dark mode is the default. The header theme control enables a saved light instrument theme per browser.
 - Responses disable caching and include a restrictive same-origin Content Security Policy.
 - The systemd service has no root privileges or Linux capabilities and uses a read-only filesystem apart from its state directory.
 - There is currently no authentication. Treat the selected LAN as trusted and enforce network segmentation/firewall policy outside the app if needed.

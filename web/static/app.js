@@ -124,6 +124,53 @@ function setLamp(id, state) {
   element.className = `lamp ${state}`;
 }
 
+function savePreference(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (_) {
+    // The controls still work for this page when storage is unavailable.
+  }
+}
+
+function applyTheme(theme, persist = true) {
+  const light = theme === "light";
+  document.documentElement.dataset.theme = light ? "light" : "dark";
+  const toggle = $("theme-toggle");
+  toggle.setAttribute("aria-pressed", String(light));
+  toggle.setAttribute("aria-label", light ? "Use dark theme" : "Use light theme");
+  toggle.title = light ? "Use dark theme" : "Use light theme";
+  if (persist) savePreference("zenitick.theme", light ? "light" : "dark");
+}
+
+function applyLocationVisibility(visible, persist = true) {
+  document.documentElement.dataset.locationVisible = String(visible);
+  const toggle = $("privacy-toggle");
+  const action = visible ? "Hide location values" : "Show location values";
+  toggle.setAttribute("aria-pressed", String(visible));
+  toggle.setAttribute("aria-label", action);
+  toggle.title = action;
+  document.querySelectorAll(".sensitive-value").forEach((element) => {
+    if (visible) {
+      element.removeAttribute("aria-hidden");
+    } else {
+      element.setAttribute("aria-hidden", "true");
+    }
+  });
+  if (persist) savePreference("zenitick.locationVisible", String(visible));
+}
+
+function setupDisplayControls() {
+  const root = document.documentElement;
+  applyTheme(root.dataset.theme === "light" ? "light" : "dark", false);
+  applyLocationVisibility(root.dataset.locationVisible === "true", false);
+  $("theme-toggle").addEventListener("click", () => {
+    applyTheme(root.dataset.theme === "light" ? "dark" : "light");
+  });
+  $("privacy-toggle").addEventListener("click", () => {
+    applyLocationVisibility(root.dataset.locationVisible !== "true");
+  });
+}
+
 function satelliteOrigin(satellite) {
   if (!isNumber(satellite.gnssid) || !Number.isInteger(satellite.gnssid)) return null;
   return GNSS_ORIGINS[satellite.gnssid] || null;
@@ -552,6 +599,7 @@ function animateClock(frameTime) {
 }
 
 function start() {
+  setupDisplayControls();
   setupSorting();
   setupSkyLabelCycle();
   const defaultSort = document.querySelector('button[data-sort="used"]');
