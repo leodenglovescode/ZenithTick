@@ -37,58 +37,62 @@ The gpsd and chrony workers are independent. Loss of either source does not bloc
 
 ## Install on the Raspberry Pi
 
-The production Pi must already have a fixed private IPv4 address, with gpsd and chrony working. Installation is deliberately split into preparation, foreground verification, and service installation so the systemd unit is never started before live data is checked.
-
-### 1. Clone and prepare
-
-Run on the Pi:
+The production Pi must already have a private IPv4 address, with gpsd and chrony working. One GitHub-hosted installer handles dependencies, source checkout, Python environment, configuration, systemd, and a local API health check:
 
 ```bash
-sudo apt-get update
-sudo apt-get install --no-install-recommends git ca-certificates
-sudo git clone https://github.com/leodenglovescode/ZenithTick.git /opt/zenitick
-sudo /opt/zenitick/scripts/prepare.sh
+curl -fsSL https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/install.sh | sudo bash -s -- install
 ```
 
-The preparation script lists the Pi's assigned IPv4 addresses and asks which private LAN address to use. It validates the selection, stores it in `/etc/zenitick/zenitick.env`, installs `python3-venv`, creates `/opt/zenitick/.venv`, and installs the two Python dependencies. It does not install or start a service. No Node.js, npm, browser, desktop packages, or separate database service are required.
+If the Pi has one private LAN address, the installer selects it automatically. If it has several, the installer asks which one to use. It refuses wildcard, public, loopback, and unassigned addresses. Port 8989 is used by default; pass `--port PORT` to choose another unprivileged port.
 
-### 2. Verify live data in the foreground
+The installer:
 
-Run this as the normal, non-root Pi user:
+- Installs only `ca-certificates`, `curl`, `git`, `iproute2`, `python3-venv`, and `util-linux` through APT.
+- Clones the public repository into `/opt/zenitick`.
+- Creates an isolated Python environment and installs the Python requirements.
+- Saves the selected address and port outside Git in `/etc/zenitick/zenitick.env`.
+- Installs and starts `zenitick-dashboard.service` with a non-root dynamic user.
+- Enables a daily, randomized automatic GitHub update check.
+- Calls `/api/status` locally and reports success only after the service is healthy.
+
+No Node.js, npm, browser, desktop packages, or separate database service are installed.
+
+Because the command executes a root installer directly from GitHub, review it first if desired:
 
 ```bash
-/opt/zenitick/scripts/run-foreground.sh
+curl -fsSLO https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/install.sh
+less install.sh
+sudo bash install.sh install
 ```
 
-The script reads the saved address, refuses wildcard or public binding, checks that port 8989 is free, prints read-only chrony reports, and starts the dashboard in the foreground. Open **`http://<PI_LAN_IP>:8989`** from another device on the LAN.
+After installation, open **`http://<PI_LAN_IP>:8989`** and confirm the displayed satellite and timing data against gpsd and chrony.
 
-Check that:
+## Manage the installation
 
-- Satellite IDs, positions, C/N0, and used state agree with gpsd SKY data.
-- Fix mode, position, altitude, and GPS UTC agree with gpsd TPV data.
-- Selected source, reach, offsets, and leap state agree with chrony.
-- PPS says `LOCKED` only when the PPS chrony source is selected (`*`).
-- The clock advances smoothly and reports browser synchronization quality.
-
-Press `Ctrl-C` after the checks pass.
-
-### 3. Install and start the service
+The installer creates one management command:
 
 ```bash
-sudo /opt/zenitick/scripts/install-service.sh
+sudo zenitickctl status
+sudo zenitickctl update
+sudo zenitickctl auto-update status
+sudo zenitickctl auto-update enable
+sudo zenitickctl auto-update disable
+sudo zenitickctl uninstall
 ```
 
-Confirm the prompt only after the foreground checks pass. The script installs the unit, enables it, starts it, and prints its status. The unit runs without root privileges through systemd `DynamicUser`, writes history only under `/var/lib/zenitick`, allows no IPv6 sockets, and binds only to the configured private IPv4 address.
+`update` fetches the GitHub `main` branch, refuses dirty or non-fast-forward changes, refreshes dependencies and unit files, restarts only ZenithTick, and repeats the API health check.
 
-### Update later
-
-After new versions are pushed to GitHub:
+Automatic updates run daily with a randomized delay and after a missed schedule on the next boot. They are enabled by default. To install without them:
 
 ```bash
-sudo /opt/zenitick/scripts/update.sh
+curl -fsSL https://raw.githubusercontent.com/leodenglovescode/ZenithTick/main/install.sh | sudo bash -s -- install --no-auto-update
 ```
 
-The update script uses `git pull --ff-only`, refreshes Python requirements, installs the current unit file, and restarts only `zenitick-dashboard.service`. It does not restart or alter gpsd, chrony, or any other PiWatch service.
+`uninstall` removes the service, timer, application checkout, and configuration after confirmation. Satellite history under `/var/lib/zenitick` is preserved by default. Permanently remove it only when intended:
+
+```bash
+sudo zenitickctl uninstall --purge
+```
 
 ## Service operations
 
@@ -98,9 +102,11 @@ sudo systemctl stop zenitick-dashboard.service
 sudo systemctl restart zenitick-dashboard.service
 sudo systemctl status zenitick-dashboard.service
 sudo journalctl -u zenitick-dashboard.service -f
+sudo systemctl status zenitick-update.timer
+sudo journalctl -u zenitick-update.service
 ```
 
-After changing application files or Python dependencies, reinstall requirements if needed and restart the service. No gpsd or chrony restart is required for dashboard updates.
+No gpsd or chrony restart is required for dashboard installation or updates.
 
 ## Configuration
 
@@ -116,7 +122,7 @@ Environment variables and their defaults:
 | `ZENITICK_CHRONY_INTERVAL` | `2` | chrony polling interval in seconds |
 | `ZENITICK_HISTORY_DB` | `var/satellite_history.sqlite3` | SQLite history path; the service overrides this to `/var/lib/zenitick/...` |
 
-If the Pi's LAN address changes, rerun `sudo /opt/zenitick/scripts/prepare.sh <NEW_PI_LAN_IP>` and restart `zenitick-dashboard.service`. The production Gunicorn configuration rejects wildcard, loopback, IPv6, and non-RFC1918 addresses.
+If the Pi's LAN address changes, rerun the central installer with `install --bind ADDRESS`. It reuses the existing checkout and configuration, applies the new validated address, and restarts the service. The production Gunicorn configuration rejects wildcard, loopback, IPv6, and non-RFC1918 addresses.
 
 ## Browser clock synchronization
 
@@ -131,6 +137,7 @@ The service parsers and GPS merge/history behavior use Python's standard test ru
 ```bash
 python3 -m compileall -q web tests
 python3 -m unittest discover -s tests -v
+bash -n install.sh
 ```
 
 For a local API smoke test on a non-Pi development machine, install the requirements in a virtual environment and override the bind address:
@@ -154,7 +161,7 @@ gpsd and chrony may show as unavailable during this local smoke test; that is an
 
 ## Known limitations
 
-- Live NEO-6M/gpsd and PPS/chrony behavior can be validated only on the target Pi; use the manual deployment checklist above.
+- Live NEO-6M/gpsd and PPS/chrony values can be validated only on the target Pi; the installer verifies service/API health but cannot judge antenna reception or measurement quality.
 - PPS recognition uses a chrony source name containing `PPS`. If the existing configuration gives the PPS refclock a different name, adjust the detection rule in `web/chrony_service.py` only; do not reconfigure chrony just for the dashboard.
 - Constellation names are not guessed. The UI shows PRN, or SVID when PRN is absent.
 - Satellite history is observational and batched. A sudden power loss can lose roughly the most recent flush interval.

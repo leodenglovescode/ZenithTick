@@ -1,0 +1,17 @@
+[Unit]
+Description=Update ZenithTick from GitHub
+After=network-online.target
+Wants=network-online.target
+ConditionPathIsDirectory=/opt/zenitick/.git
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/zenitickctl update --automatic
+TimeoutStartSec=15min
+Nice=10
+IOSchedulingClass=idle
+UMask=0022
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+RestrictSUIDSGID=yes

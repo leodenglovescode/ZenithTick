@@ -11,7 +11,7 @@ ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for a PiWatch ho
 - Keep the server bound to the explicit private LAN IPv4 address saved in `/etc/zenitick/zenitick.env`. Do not change it to a wildcard or public interface.
 - Do not add analytics, telemetry, CDNs, external fonts/scripts, map tiles, React, Node, npm, webpack, or a large frontend framework.
 - Do not claim the browser-rendered milliseconds are direct PPS-edge accuracy. They are an RTT-estimated view of the Pi's chrony-disciplined system clock.
-- Do not install or restart the production systemd unit until the foreground/manual checks in `README.md` pass on the Pi.
+- The central installer may install or restart only ZenithTick units after validating configuration; it must report success only after the local API health check passes.
 - Preserve graceful unavailable/stale states. A gpsd or chrony failure must not break the other component or the page.
 - Never turn missing GNSS values into zero. Preserve valid zero values when zero is semantically possible.
 
@@ -27,10 +27,9 @@ ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for a PiWatch ho
 - `web/static/app.js`: rendering, SVG sky plot, sorting, polling, and clock synchronization.
 - `web/static/style.css`: local instrument styling and responsive layout.
 - `systemd/zenitick-dashboard.service`: production process definition; it uses exactly one Gunicorn worker so background collectors are not duplicated.
-- `scripts/prepare.sh`: installs the Python environment after a GitHub clone; does not install the service.
-- `scripts/run-foreground.sh`: enforces the manual, non-root production-address verification.
-- `scripts/install-service.sh`: installs systemd only after interactive confirmation that verification passed.
-- `scripts/update.sh`: performs a fast-forward-only GitHub update and restarts an already-installed service.
+- `install.sh`: GitHub-hosted installer and installed `zenitickctl` manager for install, update, status, automatic updates, and safe uninstall.
+- `systemd/zenitick-update.service`: one-shot updater invoking the installed manager.
+- `systemd/zenitick-update.timer`: randomized daily GitHub update schedule.
 - `tests/test_services.py`: deterministic parser, merge, and persistence tests.
 
 Keep modules focused. Do not collapse the backend into one file. Add a new module only when it has a clear responsibility.
@@ -59,6 +58,7 @@ Run before committing:
 python3 -m compileall -q web tests
 python3 -m unittest discover -s tests -v
 node --check web/static/app.js  # optional developer check; Node is not a runtime dependency
+bash -n install.sh
 ```
 
 For a Flask/API smoke test, follow the local or Pi instructions in `README.md`. It is valid for gpsd and chrony to be unavailable on a development machine; never add fake fallback observations.
@@ -67,6 +67,7 @@ For a Flask/API smoke test, follow the local or Pi instructions in `README.md`. 
 
 - Keep important changes in focused Git commits.
 - Do not push until the user creates and authorizes a remote repository.
-- Deployment source is the GitHub checkout at `/opt/zenitick`; do not restore the old rsync-based deployment instructions.
+- Deployment source is the GitHub checkout at `/opt/zenitick`; keep installation and lifecycle operations centralized in `install.sh`/`zenitickctl`.
 - Production files live at `/opt/zenitick`; persistent satellite history lives at `/var/lib/zenitick` under systemd.
-- If the bind address changes, rerun `scripts/prepare.sh <PI_LAN_IP>` and restart only the ZenithTick service.
+- Automatic updates must be fast-forward-only, reject dirty production checkouts, and restart no unrelated services.
+- Uninstall preserves `/var/lib/zenitick` unless the user explicitly selects `--purge`.

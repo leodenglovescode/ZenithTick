@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily ZenithTick update check
+
+[Timer]
+OnBootSec=15min
+OnCalendar=daily
+RandomizedDelaySec=1h
+AccuracySec=5min
+Persistent=yes
+Unit=zenitick-update.service
+
+[Install]
+WantedBy=timers.target
