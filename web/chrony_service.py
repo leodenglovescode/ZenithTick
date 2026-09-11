@@ -30,22 +30,23 @@ def parse_tracking(output: str) -> dict[str, Any]:
     if not rows:
         raise ValueError("chronyc tracking returned no data")
     row = rows[0]
-    if len(row) < 13:
+    if len(row) < 14:
         raise ValueError(f"unexpected chronyc tracking field count: {len(row)}")
     return {
         "reference_id": row[0],
-        "stratum": _number(row[1], integer=True),
-        "reference_time_epoch": _number(row[2]),
-        "system_time_offset_s": _number(row[3]),
-        "last_offset_s": _number(row[4]),
-        "rms_offset_s": _number(row[5]),
-        "frequency_ppm": _number(row[6]),
-        "residual_frequency_ppm": _number(row[7]),
-        "skew_ppm": _number(row[8]),
-        "root_delay_s": _number(row[9]),
-        "root_dispersion_s": _number(row[10]),
-        "update_interval_s": _number(row[11]),
-        "leap_status": row[12],
+        "reference_name": row[1],
+        "stratum": _number(row[2], integer=True),
+        "reference_time_epoch": _number(row[3]),
+        "system_time_offset_s": _number(row[4]),
+        "last_offset_s": _number(row[5]),
+        "rms_offset_s": _number(row[6]),
+        "frequency_ppm": _number(row[7]),
+        "residual_frequency_ppm": _number(row[8]),
+        "skew_ppm": _number(row[9]),
+        "root_delay_s": _number(row[10]),
+        "root_dispersion_s": _number(row[11]),
+        "update_interval_s": _number(row[12]),
+        "leap_status": row[13],
     }
 
 

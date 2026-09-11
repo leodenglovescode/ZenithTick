@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from web.chrony_service import parse_sources, parse_sourcestats, parse_tracking
+from web.chrony_service import ChronyService, parse_sources, parse_sourcestats, parse_tracking
 from web.gps_service import GpsService
 from web.history import SatelliteHistory
 
@@ -12,13 +12,25 @@ from web.history import SatelliteHistory
 class ChronyParsingTests(unittest.TestCase):
     def test_tracking_csv(self) -> None:
         tracking = parse_tracking(
-            "50505300,1,1789056610.125,-0.000000124,0.000000032,0.000000410,"
+            "50505300,PPS,1,1789056610.125,-0.000000124,0.000000032,0.000000410,"
             "-1.250,0.004,0.015,0.000420,0.000710,1.0,Normal\n"
         )
         self.assertEqual(tracking["reference_id"], "50505300")
+        self.assertEqual(tracking["reference_name"], "PPS")
         self.assertEqual(tracking["stratum"], 1)
+        self.assertAlmostEqual(tracking["reference_time_epoch"], 1789056610.125)
+        self.assertAlmostEqual(tracking["system_time_offset_s"], -0.000000124)
         self.assertAlmostEqual(tracking["rms_offset_s"], 0.000000410)
+        self.assertAlmostEqual(tracking["root_dispersion_s"], 0.000710)
+        self.assertAlmostEqual(tracking["update_interval_s"], 1.0)
         self.assertEqual(tracking["leap_status"], "Normal")
+
+    def test_tracking_rejects_rows_missing_reference_name(self) -> None:
+        with self.assertRaisesRegex(ValueError, "field count: 13"):
+            parse_tracking(
+                "50505300,1,1789056610.125,-0.000000124,0.000000032,0.000000410,"
+                "-1.250,0.004,0.015,0.000420,0.000710,1.0,Normal\n"
+            )
 
     def test_sources_and_stats_csv(self) -> None:
         sources = parse_sources(
@@ -29,6 +41,27 @@ class ChronyParsingTests(unittest.TestCase):
         self.assertEqual(sources[0]["state"], "*")
         self.assertEqual(sources[0]["reach"], "377")
         self.assertAlmostEqual(stats["PPS"]["standard_deviation_s"], 0.000000020)
+
+    def test_selected_pps_is_reported_as_synchronized(self) -> None:
+        reports = {
+            "tracking": (
+                "50505300,PPS,1,1789056610.125,-0.000000124,0.000000032,0.000000410,"
+                "-1.250,0.004,0.015,0.000420,0.000710,16.0,Normal\n"
+            ),
+            "sources": "#,*,PPS,0,4,377,9,-0.000002199,-0.000002555,0.000000300\n",
+            "sourcestats": "PPS,12,7,15,0.001,0.005,0.000000011,0.000000020\n",
+        }
+        service = ChronyService()
+        service._run_command = reports.__getitem__  # type: ignore[method-assign]
+
+        state = service.poll_once()
+
+        self.assertTrue(state["available"])
+        self.assertTrue(state["synchronized"])
+        self.assertEqual(state["pps_status"], "selected")
+        self.assertEqual(state["selected_source"], "PPS")
+        self.assertEqual(state["tracking"]["stratum"], 1)
+        self.assertEqual(state["tracking"]["leap_status"], "Normal")
 
 
 class GpsMergeTests(unittest.TestCase):
