@@ -2,7 +2,9 @@
 
 ZenithTick is a lightweight, LAN-only GNSS and PPS timing dashboard for the PiWatch Raspberry Pi. It reads the existing gpsd and chrony services without changing their configuration. The UI is rendered entirely by another device's browser; the Pi does not need a desktop environment.
 
-Default URL: **http://192.168.3.99:8080**
+Dashboard address: **http://192.168.3.99:8080**
+
+Source repository: **GitHub**. This local checkout does not have an `origin` remote yet, so the exact GitHub URL is intentionally not invented below. Replace `YOUR_GITHUB_USERNAME` once when the repository is created.
 
 ## What it reads
 
@@ -31,96 +33,71 @@ The API is intentionally small:
 
 The gpsd and chrony workers are independent. Loss of either source does not block the page or the other worker, and last-known optional GPS fields survive partial gpsd reports.
 
-## Deploy to the Raspberry Pi
+## Publish to GitHub once
 
-The commands below assume Raspberry Pi OS/Debian and the Pi is already configured at `192.168.3.99`. Replace `PI_USER` with the actual non-root login name on the Pi.
-
-### 1. Confirm the target before copying
-
-On the Pi:
+Create an empty GitHub repository named `ZenithTick`, without adding a README or license on GitHub. Then run these commands from this local checkout, replacing the username:
 
 ```bash
-ip -4 addr show
-sudo ss -ltnp 'sport = :8080'
-python3 --version
-chronyc -c tracking
-chronyc -c sources
+git remote add origin https://github.com/YOUR_GITHUB_USERNAME/ZenithTick.git
+git push -u origin main
 ```
 
-The address `192.168.3.99` must be assigned to the Pi, and port 8080 should produce no listener output. If port 8080 is occupied, choose another unprivileged port and change both `ZENITICK_PORT` and Gunicorn's `--bind` value in the unit before installing it.
+Those commands are documentation only—this project will not push or create a remote without explicit authorization.
 
-### 2. Copy the project
+## Install on the Raspberry Pi
 
-From this project directory on the development computer:
+The production Pi must already own `192.168.3.99`, with gpsd and chrony working. Installation is deliberately split into preparation, foreground verification, and service installation so the systemd unit is never started before live data is checked.
 
-```bash
-rsync -av --exclude '.git' --exclude '.venv' --exclude 'var/*.sqlite3*' ./ PI_USER@192.168.3.99:/tmp/zenitick/
-```
+### 1. Clone and prepare
 
-Then on the Pi:
+Run on the Pi, replacing the GitHub username:
 
 ```bash
-sudo install -d -m 0755 /opt/zenitick
-sudo cp -a /tmp/zenitick/. /opt/zenitick/
-sudo chown -R root:root /opt/zenitick
-cd /opt/zenitick
 sudo apt-get update
-sudo apt-get install --no-install-recommends python3-venv
-sudo python3 -m venv .venv
-sudo .venv/bin/pip install --upgrade pip
-sudo .venv/bin/pip install -r requirements.txt
+sudo apt-get install --no-install-recommends git ca-certificates
+sudo git clone https://github.com/YOUR_GITHUB_USERNAME/ZenithTick.git /opt/zenitick
+sudo /opt/zenitick/scripts/prepare.sh
 ```
 
-No Node.js, npm, browser, desktop packages, database service, or external frontend assets are required.
+The preparation script installs `python3-venv`, creates `/opt/zenitick/.venv`, and installs the two Python dependencies. It does not install or start a service. No Node.js, npm, browser, desktop packages, or separate database service are required.
 
-### 3. Verify manually before installing the service
+### 2. Verify live data in the foreground
 
-First confirm the upstream data on the Pi. These commands only read the existing services:
+Run this as the normal, non-root Pi user:
 
 ```bash
-gpspipe -w -n 12
-chronyc -c tracking
-chronyc -c sources
-chronyc -c sourcestats
+/opt/zenitick/scripts/run-foreground.sh
 ```
 
-Start ZenithTick in the foreground as an unprivileged user. The temporary history path avoids needing `/var/lib/zenitick` during this check:
+The script refuses to use another address, checks that port 8080 is free, prints read-only chrony reports, and starts the dashboard in the foreground. Open **http://192.168.3.99:8080** from a MacBook or phone.
+
+Check that:
+
+- Satellite IDs, positions, C/N0, and used state agree with gpsd SKY data.
+- Fix mode, position, altitude, and GPS UTC agree with gpsd TPV data.
+- Selected source, reach, offsets, and leap state agree with chrony.
+- PPS says `LOCKED` only when the PPS chrony source is selected (`*`).
+- The clock advances smoothly and reports browser synchronization quality.
+
+Press `Ctrl-C` after the checks pass.
+
+### 3. Install and start the service
 
 ```bash
-cd /opt/zenitick
-ZENITICK_HISTORY_DB=/tmp/zenitick-history.sqlite3 .venv/bin/gunicorn --workers 1 --threads 4 --bind 192.168.3.99:8080 'web.app:create_app()'
+sudo /opt/zenitick/scripts/install-service.sh
 ```
 
-In a second Pi shell:
+Confirm the prompt only after the foreground checks pass. The script installs the unit, enables it, starts it, and prints its status. The unit runs without root privileges through systemd `DynamicUser`, writes history only under `/var/lib/zenitick`, allows no IPv6 sockets, and binds only to `192.168.3.99:8080`.
+
+### Update later
+
+After new versions are pushed to GitHub:
 
 ```bash
-curl --fail --silent http://192.168.3.99:8080/api/status | python3 -m json.tool
-curl --fail --silent http://192.168.3.99:8080/api/time | python3 -m json.tool
+sudo /opt/zenitick/scripts/update.sh
 ```
 
-From the MacBook or phone, open **http://192.168.3.99:8080** and verify:
-
-- Satellites in the table agree with current gpsd `SKY` reports.
-- Used satellites and the sky positions agree with their `used`, `az`, and `el` fields.
-- Fix mode and coordinates agree with `TPV`.
-- The selected source, reach register, offsets, and leap state agree with `chronyc -c tracking` and `chronyc -c sources`.
-- PPS shows `LOCKED` only when the PPS-named chrony source has state `*`.
-- The clock advances smoothly and the quality line updates after several probes.
-
-Stop the foreground process with `Ctrl-C` only after these checks pass.
-
-### 4. Install the systemd unit
-
-Install the unit only after the manual checks above succeed:
-
-```bash
-sudo cp /opt/zenitick/systemd/zenitick-dashboard.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now zenitick-dashboard.service
-sudo systemctl status zenitick-dashboard.service
-```
-
-The unit uses systemd `DynamicUser`, so the dashboard does not run as root. `StateDirectory=zenitick` creates the writable `/var/lib/zenitick` history location. It is restricted to IPv4/Unix sockets and Gunicorn binds only to the Pi's LAN IPv4 address—not `0.0.0.0` or an IPv6 interface.
+The update script uses `git pull --ff-only`, refreshes Python requirements, installs the current unit file, and restarts only `zenitick-dashboard.service`. It does not restart or alter gpsd, chrony, or any other PiWatch service.
 
 ## Service operations
 

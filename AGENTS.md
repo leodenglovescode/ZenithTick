@@ -26,6 +26,10 @@ ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for the PiWatch 
 - `web/static/app.js`: rendering, SVG sky plot, sorting, polling, and clock synchronization.
 - `web/static/style.css`: local instrument styling and responsive layout.
 - `systemd/zenitick-dashboard.service`: production process definition; it uses exactly one Gunicorn worker so background collectors are not duplicated.
+- `scripts/prepare.sh`: installs the Python environment after a GitHub clone; does not install the service.
+- `scripts/run-foreground.sh`: enforces the manual, non-root production-address verification.
+- `scripts/install-service.sh`: installs systemd only after interactive confirmation that verification passed.
+- `scripts/update.sh`: performs a fast-forward-only GitHub update and restarts an already-installed service.
 - `tests/test_services.py`: deterministic parser, merge, and persistence tests.
 
 Keep modules focused. Do not collapse the backend into one file. Add a new module only when it has a clear responsibility.
@@ -62,5 +66,6 @@ For a Flask/API smoke test, follow the local or Pi instructions in `README.md`. 
 
 - Keep important changes in focused Git commits.
 - Do not push until the user creates and authorizes a remote repository.
+- Deployment source is the GitHub checkout at `/opt/zenitick`; do not restore the old rsync-based deployment instructions.
 - Production files live at `/opt/zenitick`; persistent satellite history lives at `/var/lib/zenitick` under systemd.
 - If the bind address or port changes, update both the service environment and Gunicorn `--bind`, plus the README.
