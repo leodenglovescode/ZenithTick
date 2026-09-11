@@ -141,53 +141,23 @@ select_port() {
 }
 
 check_port_available() {
-  local old_bind old_port candidate upper_bound confirmation attempt listener_pids pid
+  local old_bind old_port candidate upper_bound confirmation
   old_bind="$(read_config_value ZENITICK_BIND)"
   old_port="$(read_config_value ZENITICK_PORT)"
   if ! ss -H -ltn "sport = :${SELECTED_PORT}" | grep -q .; then
     return 0
   fi
 
-  if systemctl is-active --quiet "${SERVICE_NAME}"; then
-    if [[ "${old_port}" == "${SELECTED_PORT}" ]] \
-      && [[ "${old_bind}" == "${SELECTED_BIND}" || -z "${old_bind}" ]]; then
-      printf 'Port %s belongs to the existing ZenithTick service; it will be replaced cleanly.\n' "${SELECTED_PORT}"
-      return 0
-    fi
+  if [[ "${old_port}" == "${SELECTED_PORT}" ]] \
+    && [[ "${old_bind}" == "${SELECTED_BIND}" || -z "${old_bind}" ]] \
+    && service_owns_port "${SELECTED_PORT}"; then
+    printf 'Port %s belongs to the existing ZenithTick service; it will be replaced cleanly.\n' "${SELECTED_PORT}"
+    return 0
   fi
 
   printf 'TCP port %s is already in use by:\n' "${SELECTED_PORT}" >&2
   ss -ltnp "sport = :${SELECTED_PORT}" >&2 || true
-
-  if [[ -r /dev/tty ]]; then
-    read -r -p "Stop the process(es) using port ${SELECTED_PORT}? [y/N] " confirmation < /dev/tty
-    case "${confirmation}" in
-      y|Y|yes|YES)
-        listener_pids="$(fuser -n tcp "${SELECTED_PORT}" 2>/dev/null || true)"
-        for pid in ${listener_pids}; do
-          [[ "${pid}" =~ ^[0-9]+$ ]] || continue
-          if (( pid <= 1 )); then
-            printf 'Refusing to signal protected PID %s.\n' "${pid}" >&2
-            continue
-          fi
-          kill -TERM "${pid}" 2>/dev/null || true
-        done
-        for attempt in {1..5}; do
-          if ! ss -H -ltn "sport = :${SELECTED_PORT}" | grep -q .; then
-            printf 'Port %s is now free.\n' "${SELECTED_PORT}"
-            return 0
-          fi
-          sleep 1
-        done
-        printf 'Port %s was reopened, probably by a supervising service.\n' "${SELECTED_PORT}" >&2
-        ;;
-      *)
-        printf 'The existing listener was left running.\n'
-        ;;
-    esac
-  else
-    printf 'No interactive terminal is available; the existing listener was left running.\n' >&2
-  fi
+  printf 'ZenithTick will not stop or signal an unrelated process.\n' >&2
 
   if [[ -n "${PORT_ARGUMENT}" ]]; then
     die "The explicitly requested port is occupied. Stop its owning service or choose another --port value."
@@ -197,13 +167,38 @@ check_port_available() {
   (( upper_bound > 65535 )) && upper_bound=65535
   for (( candidate = SELECTED_PORT + 1; candidate <= upper_bound; candidate++ )); do
     if ! ss -H -ltn "sport = :${candidate}" | grep -q .; then
-      printf 'Default port %s is busy; using the next free port, %s.\n' "${SELECTED_PORT}" "${candidate}"
+      if [[ -r /dev/tty ]]; then
+        read -r -p "Use available port ${candidate} instead? [Y/n] " confirmation < /dev/tty
+        case "${confirmation}" in
+          n|N|no|NO)
+            die "Installation cancelled without changing the process using port ${SELECTED_PORT}."
+            ;;
+        esac
+      fi
+      printf 'Port %s is busy; using available port %s.\n' "${SELECTED_PORT}" "${candidate}"
       SELECTED_PORT="${candidate}"
       return 0
     fi
   done
 
   die "No free port was found in the next 100 ports. Rerun with --port PORT."
+}
+
+service_owns_port() {
+  local port="$1" control_group listener_pids listener_pid found="no"
+  systemctl is-active --quiet "${SERVICE_NAME}" || return 1
+  control_group="$(systemctl show --property ControlGroup --value "${SERVICE_NAME}" 2>/dev/null || true)"
+  [[ -n "${control_group}" && "${control_group}" != "/" ]] || return 1
+  listener_pids="$(fuser -n tcp "${port}" 2>/dev/null || true)"
+  [[ -n "${listener_pids}" ]] || return 1
+
+  for listener_pid in ${listener_pids}; do
+    [[ "${listener_pid}" =~ ^[0-9]+$ ]] || continue
+    [[ -r "/proc/${listener_pid}/cgroup" ]] || return 1
+    grep -Fq -- "${control_group}" "/proc/${listener_pid}/cgroup" || return 1
+    found="yes"
+  done
+  [[ "${found}" == "yes" ]]
 }
 
 install_dependencies() {
@@ -289,6 +284,7 @@ health_check() {
   done
   systemctl --no-pager --full status "${SERVICE_NAME}" || true
   journalctl -u "${SERVICE_NAME}" -n 30 --no-pager || true
+  systemctl stop "${SERVICE_NAME}" || true
   die "ZenithTick did not pass its local API health check."
 }
 

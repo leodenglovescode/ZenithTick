@@ -25,11 +25,26 @@ class InstallerTests(unittest.TestCase):
         for action in ("install", "update", "uninstall", "status", "auto-update"):
             self.assertIn(action, result.stdout)
 
-    def test_default_port_conflicts_have_an_automatic_fallback(self) -> None:
+    def test_port_conflicts_preserve_unrelated_processes(self) -> None:
         installer = INSTALLER.read_text()
-        self.assertIn("Stop the process(es) using port", installer)
-        self.assertIn("using the next free port", installer)
+        self.assertIn("service_owns_port", installer)
+        self.assertIn("/proc/${listener_pid}/cgroup", installer)
+        self.assertIn("will not stop or signal an unrelated process", installer)
+        self.assertNotIn('kill -TERM "${pid}"', installer)
+
+    def test_default_port_conflicts_have_a_confirmed_fallback(self) -> None:
+        installer = INSTALLER.read_text()
+        self.assertIn("Use available port ${candidate} instead? [Y/n]", installer)
+        self.assertIn("using available port", installer)
         self.assertIn("The explicitly requested port is occupied", installer)
+
+    def test_failed_health_check_stops_zenitick_restart_loop(self) -> None:
+        installer = INSTALLER.read_text()
+        status_index = installer.index('journalctl -u "${SERVICE_NAME}" -n 30')
+        stop_index = installer.index('systemctl stop "${SERVICE_NAME}"', status_index)
+        failure_index = installer.index('die "ZenithTick did not pass', stop_index)
+        self.assertLess(status_index, stop_index)
+        self.assertLess(stop_index, failure_index)
 
     def test_update_timer_is_daily_and_persistent(self) -> None:
         timer = (PROJECT_ROOT / "systemd" / "zenitick-update.timer").read_text()

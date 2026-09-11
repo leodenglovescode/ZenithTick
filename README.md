@@ -49,7 +49,7 @@ The gpsd and chrony workers are independent. Loss of either source does not bloc
 
 The production Pi must already have a private IPv4 address, with gpsd and chrony working. The GitHub-hosted installer handles dependencies, source checkout, Python environment, configuration, systemd, and a local API health check.
 
-If the Pi has one private LAN address, the installer selects it automatically. If it has several, the installer asks which one to use. It refuses wildcard, public, loopback, and unassigned addresses. Port 8989 is preferred. If it is occupied, the installer shows the listener and asks whether to stop it. Answering no leaves it untouched and selects the next free port. Pass `--port PORT` when a specific port is required.
+If the Pi has one private LAN address, the installer selects it automatically. If it has several, the installer asks which one to use. It refuses wildcard, public, loopback, and unassigned addresses. Port 8989 is preferred. If another application already uses it, the installer shows the listener and offers the next free port without stopping or modifying that application. Pass `--port PORT` when a specific port is required; an occupied explicitly requested port produces an error instead of changing its owner.
 
 The installer:
 
@@ -58,8 +58,10 @@ The installer:
 - Creates an isolated Python environment and installs the Python requirements.
 - Saves the selected address and port outside Git in `/etc/zenitick/zenitick.env`.
 - Installs and starts `zenitick-dashboard.service` with a non-root dynamic user.
+- Verifies the actual socket-owning process before treating an occupied port as an existing ZenithTick instance.
 - Enables a daily, randomized automatic GitHub update check.
 - Calls `/api/status` locally and reports success only after the service is healthy.
+- Stops only the ZenithTick unit after a failed health check so it cannot remain in a restart loop.
 
 No Node.js, npm, browser, desktop packages, or separate database service are installed.
 
