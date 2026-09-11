@@ -276,7 +276,8 @@ health_check() {
   log "Checking the dashboard service"
   for attempt in {1..20}; do
     if systemctl is-active --quiet "${SERVICE_NAME}" \
-      && curl --noproxy '*' --fail --silent --show-error --max-time 2 "http://${bind_address}:${port}/api/status" > /dev/null; then
+      && env -u LD_PRELOAD curl --noproxy '*' --fail --silent --show-error --max-time 2 \
+        "http://${bind_address}:${port}/api/status" > /dev/null; then
       printf 'ZenithTick is healthy at http://%s:%s\n' "${bind_address}" "${port}"
       return 0
     fi

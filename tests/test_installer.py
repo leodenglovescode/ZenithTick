@@ -46,6 +46,10 @@ class InstallerTests(unittest.TestCase):
         self.assertLess(status_index, stop_index)
         self.assertLess(stop_index, failure_index)
 
+    def test_health_check_cannot_inherit_a_network_preload(self) -> None:
+        installer = INSTALLER.read_text()
+        self.assertIn("env -u LD_PRELOAD curl --noproxy '*'", installer)
+
     def test_update_timer_is_daily_and_persistent(self) -> None:
         timer = (PROJECT_ROOT / "systemd" / "zenitick-update.timer").read_text()
         self.assertIn("OnCalendar=daily", timer)
