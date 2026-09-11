@@ -91,9 +91,13 @@ class GpsMergeTests(unittest.TestCase):
 
     def test_partial_satellite_fields_are_merged(self) -> None:
         gps = GpsService()
-        gps.handle_report({"class": "SKY", "satellites": [{"PRN": 3, "az": 20, "el": 30, "ss": 25}]})
+        gps.handle_report(
+            {"class": "SKY", "satellites": [{"PRN": 3, "gnssid": 0, "svid": 3, "az": 20, "el": 30, "ss": 25}]}
+        )
         gps.handle_report({"class": "SKY", "satellites": [{"PRN": 3, "ss": 31, "used": True}]})
         satellite = gps.snapshot()["satellites"][0]
+        self.assertEqual(satellite["gnssid"], 0)
+        self.assertEqual(satellite["svid"], 3)
         self.assertEqual(satellite["az"], 20)
         self.assertEqual(satellite["el"], 30)
         self.assertEqual(satellite["ss"], 31)

@@ -118,6 +118,7 @@ button { font: inherit; }
 .satellite-node.visible circle { fill: #151b1d; stroke: var(--cyan); }
 .satellite-node.used circle { fill: var(--amber); stroke: #f0cc7d; }
 .satellite-node text { fill: var(--text); font: 700 11px var(--mono); pointer-events: none; }
+.satellite-node text.is-flag { font: 14px/1 system-ui, sans-serif; }
 .satellite-node:focus circle { stroke: white; stroke-width: 3; }
 .plot-tooltip {
   position: absolute;
@@ -190,6 +191,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .empty-row td { height: 54px; color: var(--dim); text-align: center; }
 .used-yes { color: var(--green); }
 .used-no { color: var(--dim); }
+.origin-cell { color: #c9cecd; }
 
 .timing-strip { margin: 0; display: grid; grid-template-columns: repeat(9, minmax(115px, 1fr)); border-bottom: 1px solid var(--line); }
 .timing-strip > div { min-height: 67px; padding: 11px 14px; border-right: 1px solid var(--line-faint); }

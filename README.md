@@ -171,5 +171,5 @@ gpsd and chrony may show as unavailable during this local smoke test; that is an
 
 - Live NEO-6M/gpsd and PPS/chrony values can be validated only on the target Pi; the installer verifies service/API health but cannot judge antenna reception or measurement quality.
 - PPS recognition uses a chrony source name containing `PPS`. If the existing configuration gives the PPS refclock a different name, adjust the detection rule in `web/chrony_service.py` only; do not reconfigure chrony just for the dashboard.
-- Constellation names are not guessed. The UI shows PRN, or SVID when PRN is absent.
+- Constellation origin is shown only when gpsd supplies `gnssid`; it is never guessed from an ambiguous NMEA PRN. Sky markers alternate every three seconds between satellite ID and the verified origin flag. SBAS is labeled regional because one country cannot be determined from `gnssid` alone.
 - Satellite history is observational and batched. A sudden power loss can lose roughly the most recent flush interval.

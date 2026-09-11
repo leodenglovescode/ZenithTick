@@ -2,6 +2,16 @@
 
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
+const GNSS_ORIGINS = Object.freeze({
+  0: { constellation: "GPS", flag: "🇺🇸", origin: "United States" },
+  1: { constellation: "SBAS", flag: "🌐", origin: "Regional" },
+  2: { constellation: "Galileo", flag: "🇪🇺", origin: "European Union" },
+  3: { constellation: "BeiDou", flag: "🇨🇳", origin: "China" },
+  4: { constellation: "IMES", flag: "🇯🇵", origin: "Japan" },
+  5: { constellation: "QZSS", flag: "🇯🇵", origin: "Japan" },
+  6: { constellation: "GLONASS", flag: "🇷🇺", origin: "Russia" },
+  7: { constellation: "NavIC", flag: "🇮🇳", origin: "India" },
+});
 
 const dashboard = {
   satellites: [],
@@ -10,6 +20,11 @@ const dashboard = {
   statusTimer: null,
   statusBusy: false,
   lastStatusAt: 0,
+};
+
+const skyLabelCycle = {
+  showOrigins: false,
+  timer: null,
 };
 
 const clockSync = {
@@ -109,6 +124,16 @@ function setLamp(id, state) {
   element.className = `lamp ${state}`;
 }
 
+function satelliteOrigin(satellite) {
+  if (!isNumber(satellite.gnssid) || !Number.isInteger(satellite.gnssid)) return null;
+  return GNSS_ORIGINS[satellite.gnssid] || null;
+}
+
+function satelliteOriginLabel(satellite) {
+  const origin = satelliteOrigin(satellite);
+  return origin ? `${origin.flag} ${origin.origin} · ${origin.constellation}` : "—";
+}
+
 async function updateStatus() {
   if (dashboard.statusBusy) return;
   dashboard.statusBusy = true;
@@ -181,13 +206,37 @@ function renderGps(gps) {
 }
 
 function satelliteTooltip(satellite) {
+  const origin = satelliteOrigin(satellite);
   return [
-    `<b>PRN ${escapeHtml(satellite.label || "—")}</b>`,
+    `<b>Satellite ${escapeHtml(satellite.label || "—")}</b>`,
+    ...(origin ? [`Origin   ${escapeHtml(`${origin.flag} ${origin.origin} · ${origin.constellation}`)}`] : []),
     `Azimuth  ${displayNumber(satellite.az, 1, "°")}`,
     `Elevation ${displayNumber(satellite.el, 1, "°")}`,
     `C/N0     ${displayNumber(satellite.ss, 1, " dB-Hz")}`,
     `Used     ${satellite.used === true ? "yes" : "no"}`,
   ].join("<br>");
+}
+
+function updateSkyMarkerLabels() {
+  document.querySelectorAll("#satellite-layer .satellite-marker-label").forEach((label) => {
+    const showFlag = skyLabelCycle.showOrigins && Boolean(label.dataset.originFlag);
+    label.textContent = showFlag ? label.dataset.originFlag : label.dataset.satelliteId;
+    label.classList.toggle("is-flag", showFlag);
+  });
+}
+
+function setupSkyLabelCycle() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    skyLabelCycle.timer = setTimeout(() => {
+      skyLabelCycle.showOrigins = true;
+      updateSkyMarkerLabels();
+    }, 3000);
+    return;
+  }
+  skyLabelCycle.timer = setInterval(() => {
+    skyLabelCycle.showOrigins = !skyLabelCycle.showOrigins;
+    updateSkyMarkerLabels();
+  }, 3000);
 }
 
 function escapeHtml(value) {
@@ -218,9 +267,15 @@ function renderSkyPlot(satellites) {
     const circle = document.createElementNS(SVG_NS, "circle");
     circle.setAttribute("r", signalRadius.toFixed(1));
     const label = document.createElementNS(SVG_NS, "text");
+    const origin = satelliteOrigin(satellite);
+    label.setAttribute("class", "satellite-marker-label");
     label.setAttribute("text-anchor", "middle");
     label.setAttribute("dominant-baseline", "central");
-    label.textContent = satellite.label || "?";
+    label.dataset.satelliteId = satellite.label || "?";
+    label.dataset.originFlag = origin?.flag || "";
+    const showFlag = skyLabelCycle.showOrigins && Boolean(origin);
+    label.textContent = showFlag ? origin.flag : label.dataset.satelliteId;
+    label.classList.toggle("is-flag", showFlag);
     node.append(circle, label);
 
     const show = (event) => showSatelliteTooltip(event, satellite, node);
@@ -262,6 +317,7 @@ function hideSatelliteTooltip() {
 
 function sortValue(satellite, key) {
   if (key === "used") return satellite.used === true ? 1 : 0;
+  if (key === "origin") return satelliteOriginLabel(satellite);
   const value = satellite[key];
   return value === null || value === undefined ? (typeof value === "string" ? "" : -Infinity) : value;
 }
@@ -280,7 +336,7 @@ function renderSatelliteTable() {
     const row = body.insertRow();
     row.className = "empty-row";
     const cell = row.insertCell();
-    cell.colSpan = 8;
+    cell.colSpan = 9;
     cell.textContent = "No satellites visible";
     return;
   }
@@ -288,6 +344,7 @@ function renderSatelliteTable() {
     const row = body.insertRow();
     const values = [
       satellite.label || "—",
+      satelliteOriginLabel(satellite),
       displayNumber(satellite.az, 1, "°"),
       displayNumber(satellite.el, 1, "°"),
       displayNumber(satellite.ss, 1),
@@ -299,7 +356,8 @@ function renderSatelliteTable() {
     values.forEach((value, index) => {
       const cell = row.insertCell();
       cell.textContent = value;
-      if (index === 4) cell.className = satellite.used === true ? "used-yes" : "used-no";
+      if (index === 1) cell.className = "origin-cell";
+      if (index === 5) cell.classList.add(satellite.used === true ? "used-yes" : "used-no");
     });
   }
 }
@@ -312,7 +370,7 @@ function setupSorting() {
         dashboard.sortDirection = dashboard.sortDirection === "asc" ? "desc" : "asc";
       } else {
         dashboard.sortKey = key;
-        dashboard.sortDirection = key === "label" || key === "first_seen" ? "asc" : "desc";
+        dashboard.sortDirection = ["label", "origin", "first_seen"].includes(key) ? "asc" : "desc";
       }
       document.querySelectorAll("button[data-sort]").forEach((candidate) => delete candidate.dataset.direction);
       button.dataset.direction = dashboard.sortDirection;
@@ -495,6 +553,7 @@ function animateClock(frameTime) {
 
 function start() {
   setupSorting();
+  setupSkyLabelCycle();
   const defaultSort = document.querySelector('button[data-sort="used"]');
   if (defaultSort) defaultSort.dataset.direction = "desc";
   updateStatus();

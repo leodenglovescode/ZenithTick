@@ -57,6 +57,7 @@
           <span><i class="key-marker used"></i>Used in fix</span>
           <span><i class="key-marker visible"></i>Visible</span>
           <span class="muted">marker size follows C/N0</span>
+          <span class="muted">labels cycle ID / origin</span>
         </div>
       </section>
 
@@ -103,6 +104,7 @@
           <thead>
             <tr>
               <th><button type="button" data-sort="label">ID / PRN</button></th>
+              <th><button type="button" data-sort="origin">Country / GNSS</button></th>
               <th><button type="button" data-sort="az">Azimuth</button></th>
               <th><button type="button" data-sort="el">Elevation</button></th>
               <th><button type="button" data-sort="ss">C/N0 dB-Hz</button></th>
@@ -113,7 +115,7 @@
             </tr>
           </thead>
           <tbody id="satellite-table-body">
-            <tr class="empty-row"><td colspan="8">Waiting for satellite data</td></tr>
+            <tr class="empty-row"><td colspan="9">Waiting for satellite data</td></tr>
           </tbody>
         </table>
       </div>
