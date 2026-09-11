@@ -111,6 +111,6 @@ def create_app(
 
 if __name__ == "__main__":
     bind_address = os.environ.get("ZENITICK_BIND", "127.0.0.1")
-    port = int(os.environ.get("ZENITICK_PORT", "8080"))
+    port = int(os.environ.get("ZENITICK_PORT", "8989"))
     application = create_app()
     application.run(host=bind_address, port=port, debug=False, threaded=True)

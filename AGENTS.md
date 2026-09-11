@@ -2,7 +2,7 @@
 
 ## Project scope
 
-ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for a PiWatch host. The production target is Raspberry Pi OS Lite/Debian with no desktop environment. Deployment supplies the Pi's private RFC1918 IPv4 address as `<PI_LAN_IP>` and serves the browser UI at `http://<PI_LAN_IP>:8080`.
+ZenithTick is a lightweight, LAN-only GNSS/PPS timing dashboard for a PiWatch host. The production target is Raspberry Pi OS Lite/Debian with no desktop environment. Deployment supplies the Pi's private RFC1918 IPv4 address as `<PI_LAN_IP>` and serves the browser UI at `http://<PI_LAN_IP>:8989`.
 
 ## Non-negotiable guardrails
 

@@ -2,7 +2,7 @@
 
 ZenithTick is a lightweight, LAN-only GNSS and PPS timing dashboard for the PiWatch Raspberry Pi. It reads the existing gpsd and chrony services without changing their configuration. The UI is rendered entirely by another device's browser; the Pi does not need a desktop environment.
 
-Dashboard address after installation: **`http://<PI_LAN_IP>:8080`**
+Dashboard address after installation: **`http://<PI_LAN_IP>:8989`**
 
 `<PI_LAN_IP>` means the Pi's existing private IPv4 address on your LAN. It is supplied during installation and is never committed to the repository.
 
@@ -71,7 +71,7 @@ Run this as the normal, non-root Pi user:
 /opt/zenitick/scripts/run-foreground.sh
 ```
 
-The script reads the saved address, refuses wildcard or public binding, checks that port 8080 is free, prints read-only chrony reports, and starts the dashboard in the foreground. Open **`http://<PI_LAN_IP>:8080`** from another device on the LAN.
+The script reads the saved address, refuses wildcard or public binding, checks that port 8989 is free, prints read-only chrony reports, and starts the dashboard in the foreground. Open **`http://<PI_LAN_IP>:8989`** from another device on the LAN.
 
 Check that:
 
@@ -120,7 +120,7 @@ Environment variables and their defaults:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `ZENITICK_BIND` | `127.0.0.1` for direct development; required in production | Exact private IPv4 listen address |
-| `ZENITICK_PORT` | `8080` | Development-server port; Gunicorn bind is set separately in the unit |
+| `ZENITICK_PORT` | `8989` | Dashboard port |
 | `ZENITICK_GPSD_HOST` | `127.0.0.1` | gpsd host |
 | `ZENITICK_GPSD_PORT` | `2947` | gpsd port |
 | `ZENITICK_CHRONYC` | `chronyc` | chronyc executable path/name |
@@ -150,7 +150,7 @@ For a local API smoke test on a non-Pi development machine, install the requirem
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ZENITICK_BIND=127.0.0.1 ZENITICK_HISTORY_DB=/tmp/zenitick-dev.sqlite3 .venv/bin/python -m web.app
-curl --fail http://127.0.0.1:8080/api/status
+curl --fail http://127.0.0.1:8989/api/status
 ```
 
 gpsd and chrony may show as unavailable during this local smoke test; that is an expected resilience state, not fake data.

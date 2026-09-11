@@ -27,7 +27,7 @@ def _deployment_address() -> str:
 
 def _deployment_port() -> int:
     try:
-        value = int(os.environ.get("ZENITICK_PORT", "8080"))
+        value = int(os.environ.get("ZENITICK_PORT", "8989"))
     except ValueError as exc:
         raise RuntimeError("ZENITICK_PORT must be an integer") from exc
     if not 1024 <= value <= 65535:

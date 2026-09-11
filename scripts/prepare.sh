@@ -72,10 +72,10 @@ python3 -m venv "${PROJECT_DIR}/.venv"
 echo "Writing the explicit LAN-only bind configuration..."
 install -d -m 0755 "${CONFIG_DIR}"
 install -m 0644 /dev/null "${CONFIG_FILE}"
-printf 'ZENITICK_BIND=%s\nZENITICK_PORT=8080\n' "${BIND_ADDRESS}" > "${CONFIG_FILE}"
+printf 'ZENITICK_BIND=%s\nZENITICK_PORT=8989\n' "${BIND_ADDRESS}" > "${CONFIG_FILE}"
 
 echo
 echo "Preparation complete. No service was installed or started."
-echo "Configured dashboard address: http://${BIND_ADDRESS}:8080"
+echo "Configured dashboard address: http://${BIND_ADDRESS}:8989"
 echo "Next, run this without sudo:"
 echo "  ${PROJECT_DIR}/scripts/run-foreground.sh"
